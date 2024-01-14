@@ -59,11 +59,10 @@ pub async fn function_handler(event: LambdaEvent<EventBridgePayload>) -> Result<
         handle.await.expect("Error joining thread handles");
     }
 
-    // get new token and save to infisical
-    let updated: app::Token;
-    {
+    // get new token and save
+    let updated: app::Token = {
         let ssm_lock = ssm_map.lock().await;
-        updated = app::refresh_token(
+        app::refresh_token(
             &event.payload.app_endpoint,
             ssm_lock
                 .get(&event.payload.cid_path)
@@ -75,8 +74,8 @@ pub async fn function_handler(event: LambdaEvent<EventBridgePayload>) -> Result<
                 .get(&event.payload.scope_path)
                 .expect("Error accessing scope"),
         )
-        .await?;
-    }
+        .await.expect("")
+    };
 
     // update the appropriate tokens with newly retrieved values
     let mut handles = vec![];
@@ -100,6 +99,21 @@ pub async fn function_handler(event: LambdaEvent<EventBridgePayload>) -> Result<
         });
         handles.push(handle);
     }
+
+    // TEMPORARY - Updates directly in SSM
+    //for key in event.payload.update_paths {
+    //    let this_client = Arc::clone(&client);
+    //    let updated_cp: HashMap<String, String> = from_value(to_value(updated.clone())?)?;
+    //    let handle = tokio::spawn(async move {
+    //        let _ = app::set_ssm_parameter(
+    //            &this_client,
+    //            &key,
+    //            &updated_cp.get(&key.to_lowercase()).expect("Error getting key"),
+    //        )
+    //        .await;
+    //    });
+    //    handles.push(handle);
+    //}
 
     for handle in handles {
         handle.await.expect("Error joining thread handles");

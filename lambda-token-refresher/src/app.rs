@@ -1,5 +1,5 @@
 /// App related functions
-use aws_sdk_ssm::{types::Parameter, Client as AWSClient};
+use aws_sdk_ssm::{types::{Parameter, ParameterType}, Client as AWSClient};
 use hyper::{body::to_bytes, Body, Client, Method, Request};
 use hyper_rustls::HttpsConnectorBuilder;
 use lambda_runtime::Error;
@@ -83,7 +83,6 @@ pub async fn update_secret(
     bearer: &str,
 ) -> Result<Secret, Box<dyn std::error::Error>> {
     let url = format!("{}{}", endpoint, secret_key);
-
     let payload = to_string(&json!({
         "environment": environment,
         "secretValue": new_value,
@@ -130,4 +129,22 @@ pub async fn get_ssm_parameter(client: &AWSClient, param: &str) -> Result<Parame
         Some(p) => Ok(p),
         None => Err(format!("Unable to locate parameter {}", param).into()),
     }
+}
+
+/// Retrieve a parameter from the SSM parameter store
+///
+/// temporary
+pub async fn set_ssm_parameter(client: &AWSClient, param: &str, value: &str) -> Result<(), Error> {
+    let res = client
+        .put_parameter()
+        .overwrite(true)
+        .r#type(ParameterType::SecureString)
+        .name(format!("/onedrive-manager/{}", param))
+        .value(value)
+        .send()
+        .await;
+
+    tracing::info!("Secret {}, update status: {:?}", param, res);
+
+    Ok(())
 }
